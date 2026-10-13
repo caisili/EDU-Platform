@@ -1,0 +1,1 @@
+import './globals.css';export const metadata={title:'EDU Parent Portal',description:'Stay connected to your child’s learning'};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

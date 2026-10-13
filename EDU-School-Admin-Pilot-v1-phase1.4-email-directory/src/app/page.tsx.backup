@@ -1,0 +1,70 @@
+'use client';
+import {useEffect,useMemo,useState} from 'react';
+
+const nav=['Work','Overview','Students','Academics','Teachers','Interests & Opportunities','Events','Communications','Reports','EDU AI'];
+const initialEvents=[
+ {id:1,title:'Science Fair',date:'Oct 12',time:'4:00 PM',location:'Main Hall',grades:'6–8',interest:'Science',description:'Student projects, demos, and family showcase.'},
+ {id:2,title:'Basketball Skills Clinic',date:'Oct 18',time:'3:30 PM',location:'Gym',grades:'6–8',interest:'Basketball',description:'After-school skills clinic with coaches.'}
+];
+const stats=[['412','Students'],['28','Teachers'],['84%','School mastery'],['67','Growth moments']];
+export default function Page(){
+ const [page,setPage]=useState('Work');
+ const [events,setEvents]=useState<any[]>(initialEvents);
+ const [eventStatus,setEventStatus]=useState('Connecting to EDU Data Layer…');
+ const [showEvent,setShowEvent]=useState(false);
+ const [event,setEvent]=useState({title:'',date:'',time:'',location:'',grades:'6–8',interest:'',description:''});
+ const [q,setQ]=useState('');
+ const [messages,setMessages]=useState([{role:'ai',text:'Good evening. I can help you understand school data, draft communications, and create actions from what you find.'}]);
+ const [draft,setDraft]=useState<any>(null);
+ const [tasks,setTasks]=useState([
+  {id:1,title:'Review Grade 7 math movement',meta:'Academic · Today',done:false},
+  {id:2,title:'Approve family update draft',meta:'Communication · Today',done:false},
+  {id:3,title:'Check Science Fair participation',meta:'Event · This week',done:false}
+ ]);
+ const ask=()=>{
+  if(!q.trim())return;
+  const x=q.trim(); let reply='';
+  if(/grade 7|word problem/i.test(x)) reply='Grade 7 word-problem mastery is the clearest area to review in this demo: 14 students are below the current target. I can draft a teacher follow-up or parent update.';
+  else if(/growth|improv/i.test(x)) reply='67 student growth moments were recorded in the current demo period. Academic completion and interest participation can be reviewed together rather than as separate stories.';
+  else if(/event|coding/i.test(x)) reply='I can create a school opportunity and publish it to Student Discover. Students can then see date, location, interest match, and event details.';
+  else reply='I can query students, academics, teachers, growth and opportunities in this MVP. For production, these answers should come from the shared EDU database with role-based permissions.';
+  setMessages(m=>[...m,{role:'user',text:x},{role:'ai',text:reply}]); setQ('');
+ };
+ useEffect(()=>{
+  fetch('/api/events').then(r=>r.json()).then(d=>{if(d.connected){setEvents(d.events);setEventStatus('Connected · shared EDU Data Layer')}else setEventStatus('Demo mode · add Supabase keys to .env.local')}).catch(()=>setEventStatus('Demo mode · connection unavailable'));
+ },[]);
+ const createEvent=async()=>{
+  if(!event.title.trim())return;
+  const r=await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(event)});
+  const d=await r.json();
+  if(d.connected&&d.event){setEvents(e=>[d.event,...e.filter((x:any)=>x.id!==d.event.id)]);setEventStatus('Published · Student Discover can see this event')}
+  else {setEvents(e=>[{...event,id:Date.now(),participants:0},...e]);setEventStatus('Saved locally · connect Supabase to publish across apps')}
+  setEvent({title:'',date:'',time:'',location:'',grades:'6–8',interest:'',description:''});setShowEvent(false)
+ };
+ const email=(audience:string)=>setDraft({to:audience,subject:'Student learning update',body:'Hello,\n\nI’m reaching out with a brief update based on recent EDU learning evidence. I’d like to review the recent movement and discuss the best next support step.\n\nBest,\nSchool Administration'});
+ return <main className="shell"><aside><div className="brand">EDU <span>School</span></div><p className="sub">See the school. Support what happens next.</p><nav>{nav.map(n=><button key={n} className={page===n?'active':''} onClick={()=>setPage(n)}>{n==='EDU AI'?'✦ ':''}{n}</button>)}</nav><div className="school">Northbridge Academy<small>Admin workspace</small></div></aside>
+ <section className="content">
+ {page==='Work'&&<><Header eyebrow="EDU WORK" title="Your school work, in one place." text="Start with what needs attention, ask EDU for context, then take the next action."/>
+ <div className="workHero"><div><span className="eyebrow">TODAY</span><h2>3 things need your attention</h2><p>EDU brings together learning signals, communication, events, and follow-ups so school work does not live in separate tabs.</p></div><button className="primary" onClick={()=>setPage('EDU AI')}>✦ Ask EDU</button></div>
+ <div className="workGrid"><div className="workMain"><div className="sectionTitle"><div><span className="eyebrow">TODAY'S WORK</span><h2>What needs action</h2></div><span className="count">{tasks.filter(t=>!t.done).length} open</span></div>
+ {tasks.map(t=><div className={'task '+(t.done?'done':'')} key={t.id}><button className="check" onClick={()=>setTasks(xs=>xs.map(x=>x.id===t.id?{...x,done:!x.done}:x))}>{t.done?'✓':''}</button><div><b>{t.title}</b><small>{t.meta}</small></div><button className="taskAction" onClick={()=>t.id===1?setPage('EDU AI'):t.id===2?email('Families'):setPage('Events')}>Open →</button></div>)}</div>
+ <div className="workSide"><span className="eyebrow">QUICK ACTIONS</span><h2>Do something</h2><button onClick={()=>setPage('EDU AI')}>✦ Ask about school data<span>Query academics, students, teachers, growth</span></button><button onClick={()=>email('Teaching team')}>✉ Message teachers<span>Draft from the context you are viewing</span></button><button onClick={()=>email('Families')}>✉ Update families<span>Create a reviewable parent message</span></button><button onClick={()=>{setPage('Events');setShowEvent(true)}}>＋ Create event<span>Publish an opportunity to Student Discover</span></button></div></div>
+ <div className="brief"><div><span className="eyebrow">LEADERSHIP BRIEF</span><h2>EDU noticed this</h2></div><div className="briefItem"><b>Academic</b><p>Grade 7 word-problem mastery is below the current school target in this demo dataset.</p><button onClick={()=>{setQ('Explain the Grade 7 word-problem concern and what evidence I should review.');setPage('EDU AI')}}>Investigate with EDU →</button></div><div className="briefItem"><b>Opportunity</b><p>{events[0]?.title} is the next published student opportunity.</p><button onClick={()=>setPage('Events')}>Review event →</button></div></div></>}
+
+ {page==='Overview'&&<><Header eyebrow="SCHOOL OVERVIEW" title="Good evening." text="See learning, growth, people, and opportunities in one place."/><div className="stats">{stats.map(x=><div className="stat" key={x[1]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div><div className="grid"><Card title="What changed"><h3>Grade 7 needs attention</h3><p>Word-problem mastery is lower than the school target in the current demo dataset.</p><button onClick={()=>setPage('EDU AI')}>Ask EDU why →</button></Card><Card title="Student growth"><h3>67 moments worth remembering</h3><p>Completed learning sets and interest activities are becoming part of student growth stories.</p></Card><Card title="Upcoming opportunities"><h3>{events[0]?.title}</h3><p>{events[0]?.date} · {events[0]?.location}</p><button onClick={()=>setPage('Events')}>Manage events →</button></Card><Card title="Communication"><h3>Turn insight into action</h3><p>Draft a teacher or family message from the context you are reviewing.</p><button onClick={()=>email('Grade 7 teaching team')}>Draft teacher email →</button></Card></div></>}
+ {page==='EDU AI'&&<><Header eyebrow="✦ EDU AI COMMAND CENTER" title="Ask the school." text="Query school data, understand movement, then take an action."/><div className="aiLayout"><div className="chat"><div className="suggestions">{['What changed this week?','Which students improved most?','What should I pay attention to?','Show Grade 7 math concerns'].map(s=><button onClick={()=>setQ(s)} key={s}>{s}</button>)}</div>{messages.map((m,i)=><div key={i} className={'msg '+m.role}>{m.text}</div>)}<div className="composer"><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&ask()} placeholder="Ask anything about your school…"/><button onClick={ask}>Ask EDU</button></div></div><div className="actions"><h3>Take action</h3><p>EDU should move from insight to a teacher-controlled or admin-controlled action.</p><button onClick={()=>email('Ms. Chen')}>✉ Draft teacher email</button><button onClick={()=>email('Families')}>✉ Draft parent update</button><button onClick={()=>{setPage('Events');setShowEvent(true)}}>＋ Create event</button><button onClick={()=>setPage('Reports')}>↗ Open report</button></div></div></>}
+ {page==='Events'&&<><Header eyebrow="EVENTS & OPPORTUNITIES" title="Bring school opportunities into Discover." text="Publish an event once; eligible students can see it in Student Discover."/><p className="note">{eventStatus}</p><button className="primary" onClick={()=>setShowEvent(true)}>＋ Create Event</button><div className="eventGrid">{events.map((e:any)=><div className="eventCard" key={e.id}><span className="tag">{e.interest||'School event'}</span><h2>{e.title}</h2><p>{e.date} · {e.time}</p><p>{e.location} · Grades {e.grades}</p><p>{e.description}</p><div className="published">✓ Published to Student Discover · {e.participants||0} joined</div></div>)}</div></>}
+ {page==='Students'&&<Simple title="Students" text="See academic growth and interest growth as one student story." rows={['Alex Johnson — Grade 7 — 3 recent growth moments','Maya Patel — Grade 7 — Coding + Math','Jordan Lee — Grade 6 — Basketball + Science']}/>}
+ {page==='Academics'&&<Simple title="Academics" text="Move from school-wide patterns to classes, concepts, and evidence." rows={['Grade 7 Math — 78% mastery','Grade 6 Math — 84% mastery','Grade 8 Math — 89% mastery']}/>}
+ {page==='Teachers'&&<Simple title="Teachers" text="Support teachers with evidence, not surveillance." rows={['Ms. Chen — Grade 7 Math','Mr. Rivera — Grade 6 Math','Ms. Brooks — Grade 8 Math']}/>}
+ {page==='Interests & Opportunities'&&<Simple title="Interests & Opportunities" text="Connect what students care about with real school opportunities." rows={['Coding — 96 interested students','Basketball — 83 interested students','Science — 72 interested students']}/>}
+ {page==='Communications'&&<><Header eyebrow="COMMUNICATIONS" title="Turn school context into clear communication." text="Draft first, review the context, then approve. Real sending will connect to an authorized school mail service later."/><div className="commGrid"><Card title="TEACHERS"><h3>Teacher follow-up</h3><p>Start from a learning pattern, classroom need, event, or school announcement.</p><button onClick={()=>email('Teaching team')}>Draft teacher email →</button></Card><Card title="FAMILIES"><h3>Parent & family update</h3><p>Translate school context into a concise family-facing message for administrator review.</p><button onClick={()=>email('Families')}>Draft parent update →</button></Card></div></>}
+ {page==='Reports'&&<Simple title="Reports" text="A shared view of school movement for leaders, teachers, students, and families." rows={['Weekly School Movement','Academic Growth','Student Interests & Participation']}/>}
+ </section>
+ {showEvent&&<div className="modal"><div className="modalBox"><button className="close" onClick={()=>setShowEvent(false)}>×</button><span className="eyebrow">CREATE EVENT</span><h2>Publish to Student Discover</h2>{[['title','Event name'],['date','Date'],['time','Time'],['location','Location'],['grades','Grades'],['interest','Interest tag']].map(([k,l])=><label key={k}>{l}<input value={(event as any)[k]} onChange={e=>setEvent({...event,[k]:e.target.value})}/></label>)}<label>Description<textarea value={event.description} onChange={e=>setEvent({...event,description:e.target.value})}/></label><button className="primary" onClick={createEvent}>Publish Event</button></div></div>}
+ {draft&&<div className="modal"><div className="modalBox"><button className="close" onClick={()=>setDraft(null)}>×</button><span className="eyebrow">AI COMMUNICATION DRAFT</span><h2>Review before sending</h2><label>To<input value={draft.to} onChange={e=>setDraft({...draft,to:e.target.value})}/></label><label>Subject<input value={draft.subject} onChange={e=>setDraft({...draft,subject:e.target.value})}/></label><label>Message<textarea className="email" value={draft.body} onChange={e=>setDraft({...draft,body:e.target.value})}/></label><p className="note">MVP: review workflow is active. Real email sending will connect to an authorized mail service later.</p><button className="primary" onClick={()=>setDraft(null)}>Approve draft</button></div></div>}
+ </main>
+}
+function Header({eyebrow,title,text}:{eyebrow:string,title:string,text:string}){return <header><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{text}</p></header>}
+function Card({title,children}:{title:string,children:any}){return <div className="card"><span className="eyebrow">{title}</span>{children}</div>}
+function Simple({title,text,rows}:{title:string,text:string,rows:string[]}){return <><Header eyebrow="EDU SCHOOL" title={title} text={text}/><div className="list">{rows.map(r=><div key={r}>{r}<span>View →</span></div>)}</div></>}
